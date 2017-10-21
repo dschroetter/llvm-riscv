@@ -10,7 +10,7 @@ addons:
     packages:
       - clang-5.0
 
-before-install:
+before_install:
   ############################################################################
   # All the dependencies are installed in ${TRAVIS_BUILD_DIR}/deps/
   ############################################################################

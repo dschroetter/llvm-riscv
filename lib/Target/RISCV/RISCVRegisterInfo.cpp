@@ -13,6 +13,7 @@
 
 #include "RISCVRegisterInfo.h"
 #include "RISCV.h"
+#include "RISCVMachineFunctionInfo.h"
 #include "RISCVSubtarget.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
@@ -50,12 +51,118 @@ BitVector RISCVRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   return Reserved;
 }
 
+const uint32_t *RISCVRegisterInfo::getNoPreservedMask() const {
+  return CSR_NoRegs_RegMask;
+}
+
 void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
                                             int SPAdj, unsigned FIOperandNum,
                                             RegScavenger *RS) const {
-  report_fatal_error("Subroutines not supported yet");
+  assert(SPAdj == 0 && "Unexpected non-zero SPAdj value");
+
+  MachineInstr &MI = *II;
+  MachineFunction &MF = *MI.getParent()->getParent();
+  const auto &Subtarget = MF.getSubtarget<RISCVSubtarget>();
+  RISCVMachineFunctionInfo *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
+  MachineFrameInfo &MFI = MF.getFrameInfo();
+  MachineRegisterInfo &MRI = MF.getRegInfo();
+  const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
+  DebugLoc DL = MI.getDebugLoc();
+
+  int FrameIndex = MI.getOperand(FIOperandNum).getIndex();
+  unsigned FrameReg;
+  int Offset = MF.getFrameInfo().getObjectOffset(FrameIndex) +
+               MI.getOperand(FIOperandNum + 1).getImm();
+
+  // Callee-saved registers should be referenced relative to the stack
+  // pointer (positive offset), otherwise use the frame pointer (negative
+  // offset)
+  const std::vector<CalleeSavedInfo> &CSI = MFI.getCalleeSavedInfo();
+  int MinCSFI = 0;
+  int MaxCSFI = -1;
+
+  if (CSI.size()) {
+    MinCSFI = CSI[0].getFrameIdx();
+    MaxCSFI = CSI[CSI.size() - 1].getFrameIdx();
+  }
+
+  if (FrameIndex >= MinCSFI && FrameIndex <= MaxCSFI) {
+    FrameReg = RISCV::X2;
+    Offset += MF.getFrameInfo().getStackSize();
+  } else {
+    FrameReg = getFrameRegister(MF);
+    if (getFrameLowering(MF)->hasFP(MF))
+      Offset += RVFI->getVarArgsSaveSize();
+    else
+      Offset += MF.getFrameInfo().getStackSize();
+  }
+
+  unsigned Reg = MI.getOperand(0).getReg();
+  assert(RISCV::GPRRegClass.contains(Reg) && "Unexpected register operand");
+
+  if (!isInt<32>(Offset)) {
+    report_fatal_error(
+        "Frame offsets outside of the signed 32-bit range not supported");
+  }
+
+  MachineBasicBlock &MBB = *MI.getParent();
+  unsigned FrameRegFlags = 0;
+
+  if (!isInt<12>(Offset)) {
+    // The offset won't fit in an immediate, so use a scratch register instead
+    // Modify Offset and FrameReg appropriately
+    unsigned ScratchReg = MRI.createVirtualRegister(&RISCV::GPRRegClass);
+    uint64_t Hi20 = ((Offset + 0x800) >> 12) & 0xfffff;
+    uint64_t Lo12 = SignExtend64<12>(Offset);
+    BuildMI(MBB, II, DL, TII->get(RISCV::LUI), ScratchReg).addImm(Hi20);
+    BuildMI(MBB, II, DL, TII->get(RISCV::ADDI), ScratchReg)
+        .addReg(ScratchReg, RegState::Kill)
+        .addImm(Lo12);
+    BuildMI(MBB, II, DL, TII->get(RISCV::ADD), ScratchReg)
+        .addReg(FrameReg)
+        .addReg(ScratchReg, RegState::Kill);
+    Offset = 0;
+    FrameReg = ScratchReg;
+    FrameRegFlags = RegState::Kill;
+  }
+
+  unsigned Opc;
+
+  switch (MI.getOpcode()) {
+  default:
+    llvm_unreachable("Unexpected opcode");
+  case RISCV::LdXLEN_FI:
+    Opc = Subtarget.is64Bit() ? RISCV::LD : RISCV::LW;
+    BuildMI(MBB, II, DL, TII->get(Opc), Reg)
+        .addReg(FrameReg, FrameRegFlags)
+        .addImm(Offset);
+    break;
+  case RISCV::StXLEN_FI:
+    Opc = Subtarget.is64Bit() ? RISCV::SD : RISCV::SW;
+    BuildMI(MBB, II, DL, TII->get(Opc))
+        .addReg(Reg, getKillRegState(MI.getOperand(0).isKill()))
+        .addReg(FrameReg, FrameRegFlags | RegState::Kill)
+        .addImm(Offset);
+    break;
+  case RISCV::LEA_FI:
+    BuildMI(MBB, II, DL, TII->get(RISCV::ADDI), Reg)
+        .addReg(FrameReg, FrameRegFlags)
+        .addImm(Offset);
+    break;
+  }
+
+  // Erase old instruction.
+  MBB.erase(II);
+  return;
 }
 
 unsigned RISCVRegisterInfo::getFrameRegister(const MachineFunction &MF) const {
-  return RISCV::X8;
+  const TargetFrameLowering *TFI = getFrameLowering(MF);
+  return TFI->hasFP(MF) ? RISCV::X8 : RISCV::X2;
+}
+
+const uint32_t *
+RISCVRegisterInfo::getCallPreservedMask(const MachineFunction & /*MF*/,
+                                        CallingConv::ID /*CC*/) const {
+  return CSR_RegMask;
 }

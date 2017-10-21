@@ -276,7 +276,6 @@ TEST(TripleTest, ParsedIDs) {
   EXPECT_EQ(Triple::amdgcn, T.getArch());
   EXPECT_EQ(Triple::AMD, T.getVendor());
   EXPECT_EQ(Triple::AMDPAL, T.getOS());
-  EXPECT_EQ(Triple::UnknownEnvironment, T.getEnvironment());
 
   T = Triple("riscv32-unknown-unknown");
   EXPECT_EQ(Triple::riscv32, T.getArch());

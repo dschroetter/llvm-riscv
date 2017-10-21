@@ -11,8 +11,8 @@ addons:
       - clang-5.0
 
 before_script:
-  - mkdir build
-  - cd build
+  - mkdir ../build
+  - cd ../build
 
 script:
   - cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE="Debug" \
@@ -20,4 +20,3 @@ script:
     -DLLVM_OPTIMIZED_TABLEGEN=True \
     -DLLVM_BUILD_TESTS=True \
     -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="RISCV" ../llvm-riscv
-    - cmake --build .

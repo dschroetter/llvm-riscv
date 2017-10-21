@@ -1,34 +1,23 @@
-language: c++
-compiler:clang
-before-script:
-    - mkdir build
-    - cd build
-script:
-    - cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE="Debug" \
-      -DBUILD_SHARED=LIBS=True -DLLVM_USE_SPLIT_DWARF=True \
-      -DLLVM_OPTIMIZED_TABLEGEN=True \
-      -DLLVM_BUILD_TESTS=True \
-      -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="RISCV" ../llvm-riscv
-    - cmake --build .
+dist: trusty
+sudo: false
+language: cpp
+compiler: clang
+
 addons:
   apt:
     sources:
-      - george-edison55-precise-backports
+      - llvm-toolchain-trusty-5.0
     packages:
-      - cmake-data
-      - cmake
-matrix:
-  include:
-    # works on Trusty
-    - os: linux
-      addons:
-        apt:
-          sources:
-            - llvm-toolchain-trusty-5.0
-          packages:
-            - clang-5.0
-      env:
-        - MATRIX_EVAL="CC=clang-5.0 && CXX=clang++-5.0"
+      - clang-5.0
 
-before_install:
-    - eval "${MATRIX_EVAL}"
+before_script:
+  - mkdir build
+  - cd build
+
+script:
+  - cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE="Debug" \
+    -DBUILD_SHARED=LIBS=True -DLLVM_USE_SPLIT_DWARF=True \
+    -DLLVM_OPTIMIZED_TABLEGEN=True \
+    -DLLVM_BUILD_TESTS=True \
+    -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="RISCV" ../llvm-riscv
+    - cmake --build .

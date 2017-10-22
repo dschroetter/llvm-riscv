@@ -2,7 +2,10 @@ dist: trusty
 sudo: enabled
 language: cpp
 compiler: clang
-
+env:
+  global:
+    - MAKEFLAGS="-j 2"
+    
 addons:
   apt:
     sources:
@@ -32,7 +35,7 @@ before_script:
 
 script:
   - CC=clang-5.0 CXX=clang++-5.0 && cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE="Debug" \
-    -DBUILD_SHARED=LIBS=True -DLLVM_USE_SPLIT_DWARF=True \
+    -DBUILD_SHARED_LIBS=True -DLLVM_USE_SPLIT_DWARF=True \
     -DLLVM_OPTIMIZED_TABLEGEN=True \
     -DLLVM_BUILD_TESTS=True \
     -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="RISCV" ${TRAVIS_BUILD_DIR}

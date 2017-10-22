@@ -15,6 +15,7 @@ before_install:
   # All the dependencies are installed in ${TRAVIS_BUILD_DIR}/deps/
   ############################################################################
   - DEPS_DIR="${TRAVIS_BUILD_DIR}../deps"
+  - BUILD_DIR="${TRAVIS_BUILD_DIR}../build"
   - mkdir -p ${DEPS_DIR} && cd ${DEPS_DIR}
 
   ############################################################################
@@ -27,12 +28,12 @@ before_install:
   - cmake --version
 
 before_script:
-  - mkdir ${TRAVIS_BUILD_DIR}/../build
-  - cd ${TRAVIS_BUILD_DIR}/../build
+  - mkdir -p ${BUILD_DIR} && cd ${BUILD_DIR}
 
 script:
-  - CXX=clang++-5.0 && cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE="Debug" \
+  - CC=clang-5.0 CXX=clang++-5.0 && cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE="Debug" \
     -DBUILD_SHARED=LIBS=True -DLLVM_USE_SPLIT_DWARF=True \
     -DLLVM_OPTIMIZED_TABLEGEN=True \
     -DLLVM_BUILD_TESTS=True \
     -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="RISCV" ../llvm-riscv
+  - cmake --build .

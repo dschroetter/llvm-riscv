@@ -14,22 +14,21 @@ before_install:
   ############################################################################
   # All the dependencies are installed in ${TRAVIS_BUILD_DIR}/deps/
   ############################################################################
-  - DEPS_DIR="${TRAVIS_BUILD_DIR}/deps"
+  - DEPS_DIR="${TRAVIS_BUILD_DIR}../deps"
   - mkdir -p ${DEPS_DIR} && cd ${DEPS_DIR}
 
   ############################################################################
   # Install a recent CMake
   ############################################################################
   - |
-    CMAKE_URL="https://cmake.org/files/v3.9/cmake-3.9.4.tar.gz"
-    mkdir cmake && travis_retry wget --no-check-certificate -O - ${CMAKE_URL} | tar --strip-components=1 -xz -C cmake
-    cd ${DEPS_DIR}/cmake && ./bootstrap && make
+    CMAKE_URL="https://cmake.org/files/v3.9/cmake-3.9.4-Linux-x86_64.tar.gz"
+    mkdir cmake && travis_retry wget --quiet --no-check-certificate -O - ${CMAKE_URL} | tar --strip-components=1 -xz -C cmake
     export PATH=${DEPS_DIR}/cmake/bin:${PATH}
   - cmake --version
 
 before_script:
-  - mkdir ../build
-  - cd ../build
+  - mkdir ${TRAVIS_BUILD_DIR}/../build
+  - cd ..${TRAVIS_BUILD_DIR}/../build
 
 script:
   - CXX=clang++-5.0 && cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE="Debug" \
